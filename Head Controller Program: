@@ -1,38 +1,42 @@
 os.loadAPI("touchpoint")
 local modem = peripheral.find("modem")
-local monitor = peripheral.wrap("top")
 local logFile = "mana_log.txt"
+local monitor = peripheral.wrap("top")
 
 monitor.setTextScale(2)
 local button = touchpoint.new(monitor)
 local setups = {}
 
+-- Store history for graphs
+local manaHistory = {}
+
 function drawGUI()
     monitor.clear()
     monitor.setCursorPos(5, 1)
-    monitor.write("Mana Controller")
+    monitor.write("Mana Controller - Scroll [UP/DOWN]")
 
     for i, setup in ipairs(setups) do
         local bar = string.rep("#", math.floor(setup.manaLevel / 15))
         monitor.setCursorPos(2, 2 + (i * 3))
         monitor.write(setup.name .. ": [" .. bar .. "]")
 
-        if setup.manaLevel < 5 then
-            monitor.setCursorPos(2, 3 + (i * 3))
-            monitor.write("⚠ LOW MANA!")
+        -- Add history data
+        if not manaHistory[setup.name] then
+            manaHistory[setup.name] = {}
         end
+        table.insert(manaHistory[setup.name], setup.manaLevel)
+
+        -- Keep history manageable (20 entries max per pool)
+        if #manaHistory[setup.name] > 20 then
+            table.remove(manaHistory[setup.name], 1)
+        end
+
+        -- Graph plotting
+        monitor.setCursorPos(2, 3 + (i * 3))
+        monitor.write("Trend: " .. table.concat(manaHistory[setup.name], "-"))
     end
 
     button:draw()
-end
-
-function logManaLevels()
-    local file = fs.open(logFile, "a")
-    file.writeLine(os.date("%H:%M:%S") .. " - Mana Levels:")
-    for _, setup in ipairs(setups) do
-        file.writeLine(setup.name .. ": " .. setup.manaLevel)
-    end
-    file.close()
 end
 
 function listenForUpdates()
@@ -46,7 +50,13 @@ function listenForUpdates()
             end
         end
 
-        logManaLevels()
+        -- Save history logs
+        local file = fs.open(logFile, "a")
+        file.writeLine(os.date("%H:%M:%S") .. " - Mana Levels:")
+        for _, setup in ipairs(setups) do
+            file.writeLine(setup.name .. ": " .. setup.manaLevel)
+        end
+        file.close()
     end
 end
 
