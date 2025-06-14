@@ -1,0 +1,17 @@
+local modem = peripheral.find("modem")
+modem.open(777)
+
+while true do
+    local manaLevel = redstone.getAnalogInput("back")
+    local data = textutils.serialize({mana = manaLevel})
+    
+    modem.transmit(777, os.getComputerID(), data) -- Send mana level to master
+
+    if manaLevel < 10 then
+        redstone.setOutput("left", true)
+        sleep(0.5)
+        redstone.setOutput("left", false)
+    end
+
+    sleep(5)
+end
