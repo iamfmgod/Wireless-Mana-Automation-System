@@ -1,0 +1,54 @@
+os.loadAPI("touchpoint")
+local modem = peripheral.find("modem")
+local monitor = peripheral.wrap("top")
+local logFile = "mana_log.txt"
+
+monitor.setTextScale(2)
+local button = touchpoint.new(monitor)
+local setups = {}
+
+function drawGUI()
+    monitor.clear()
+    monitor.setCursorPos(5, 1)
+    monitor.write("Mana Controller")
+
+    for i, setup in ipairs(setups) do
+        local bar = string.rep("#", math.floor(setup.manaLevel / 15))
+        monitor.setCursorPos(2, 2 + (i * 3))
+        monitor.write(setup.name .. ": [" .. bar .. "]")
+
+        if setup.manaLevel < 5 then
+            monitor.setCursorPos(2, 3 + (i * 3))
+            monitor.write("⚠ LOW MANA!")
+        end
+    end
+
+    button:draw()
+end
+
+function logManaLevels()
+    local file = fs.open(logFile, "a")
+    file.writeLine(os.date("%H:%M:%S") .. " - Mana Levels:")
+    for _, setup in ipairs(setups) do
+        file.writeLine(setup.name .. ": " .. setup.manaLevel)
+    end
+    file.close()
+end
+
+function listenForUpdates()
+    while true do
+        local _, senderID, message = os.pullEvent("modem_message")
+        local data = textutils.unserialize(message)
+
+        for i, setup in ipairs(setups) do
+            if setup.id == senderID then
+                setup.manaLevel = data.mana
+            end
+        end
+
+        logManaLevels()
+    end
+end
+
+modem.open(777)
+parallel.waitForAll(drawGUI, listenForUpdates)
